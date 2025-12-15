@@ -1,6 +1,13 @@
 import time
 import streamlit as st
 
+import base64
+from pathlib import Path
+
+def img_to_base64(path: str) -> str:
+    data = Path(path).read_bytes()
+    return base64.b64encode(data).decode("utf-8")
+
 st.set_page_config(page_title="Pomodoro Timer", page_icon="⏳", layout="wide")
 
 # ----------------------
@@ -74,63 +81,64 @@ with left:
     # (1) 이미지 표시: 레포에 업로드한 timer.png를 불러옴
     #     파일명이 다르면 여기만 바꿔줘.
     try:
-        st.image("낼나 타이머 이미지.png", use_container_width=True)
-    except Exception:
-        st.info("왼쪽에 보여줄 이미지 파일을 레포에 `낼나 타이머 이미지.png`로 업로드해 주세요.")
-
-    # (2) 남은 시간/원형 진행 표시
-    progress_placeholder = st.empty()
-    text_placeholder = st.empty()
-
+      with left:
+    # --- 현재 남은 시간 계산 ---
     if st.session_state.running and st.session_state.end_time is not None:
         remaining = int(st.session_state.end_time - time.time())
         if remaining <= 0:
             st.session_state.running = False
             remaining = 0
+        ratio = remaining / st.session_state.duration_sec if st.session_state.duration_sec else 0
+    else:
+        remaining = st.session_state.last_set_minutes * 60
+        ratio = 1.0
 
-        remaining_ratio = remaining / st.session_state.duration_sec if st.session_state.duration_sec else 0
+    # --- 이미지 base64로 HTML에 삽입 (오버레이 하려고) ---
+    b64 = img_to_base64("timer.png")
 
-        # 원형이 줄어드는 SVG
-        size = 220
-        stroke = 16
-        r = (size - stroke) / 2
-        c = 2 * 3.1415926535 * r
-        dash = c * remaining_ratio
-        gap = c - dash
+    # --- 오버레이 원(도넛) 설정값: 여기만 튜닝하면 정렬 딱 맞출 수 있음 ---
+    IMG_W = 340                 # 화면에서 보일 이미지 가로폭(px)
+    SVG_SIZE = 300              # 원 크기(px) - 이미지보다 약간 작게
+    TOP_OFFSET = 18             # 원을 위/아래로 이동 (px)
+    LEFT_OFFSET = 20            # 원을 좌/우로 이동 (px)
+    STROKE = 28                 # 도넛 두께 (두꺼울수록 가운데 구멍 작아짐)
+    GREEN = "#1F5E3B"           # 타이머 초록에 가깝게 (원하면 바꿔줘)
 
-        svg = f"""
-        <div style="display:flex; justify-content:flex-start; gap:24px; align-items:center; margin-top:8px;">
-          <svg width="{size}" height="{size}" viewBox="0 0 {size} {size}">
-            <circle cx="{size/2}" cy="{size/2}" r="{r}"
-                    fill="none" stroke="#e6e6e6" stroke-width="{stroke}"/>
-            <circle cx="{size/2}" cy="{size/2}" r="{r}"
-                    fill="none" stroke="#4C78A8" stroke-width="{stroke}"
-                    stroke-linecap="round"
-                    stroke-dasharray="{dash} {gap}"
-                    transform="rotate(-90 {size/2} {size/2})"/>
-          </svg>
-          <div style="font-size:44px; font-weight:800;">
-            {fmt_mmss(remaining)}
-            <div style="font-size:14px; font-weight:500; color:#666; margin-top:6px;">
-              (분, 초) 남은시간
-            </div>
-          </div>
-        </div>
-        """
-        progress_placeholder.markdown(svg, unsafe_allow_html=True)
-        text_placeholder.empty()
+    # 원(아크) 계산
+    r = (SVG_SIZE - STROKE) / 2
+    c = 2 * 3.1415926535 * r
+    dash = c * ratio
+    gap = c - dash
 
+    html = f"""
+    <div style="position:relative; width:{IMG_W}px; margin-top:10px;">
+      <img src="data:image/png;base64,{b64}" style="width:{IMG_W}px; display:block;" />
+
+      <!-- 오버레이 SVG: 이미지 위에 겹치기 -->
+      <svg width="{SVG_SIZE}" height="{SVG_SIZE}"
+           style="position:absolute; top:{TOP_OFFSET}px; left:{LEFT_OFFSET}px; pointer-events:none;">
+        <!-- 배경 링(연한 회색) -->
+        <circle cx="{SVG_SIZE/2}" cy="{SVG_SIZE/2}" r="{r}"
+                fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="{STROKE}"/>
+        <!-- 진행 링(초록) -->
+        <circle cx="{SVG_SIZE/2}" cy="{SVG_SIZE/2}" r="{r}"
+                fill="none" stroke="{GREEN}" stroke-width="{STROKE}"
+                stroke-linecap="round"
+                stroke-dasharray="{dash} {gap}"
+                transform="rotate(-90 {SVG_SIZE/2} {SVG_SIZE/2})"/>
+      </svg>
+    </div>
+
+    <div style="font-size:52px; font-weight:800; margin-top:14px;">
+      {fmt_mmss(remaining)}
+      <div style="font-size:14px; font-weight:500; color:#666; margin-top:6px;">
+        (분, 초) 남은시간
+      </div>
+    </div>
+    """
+
+    st.markdown(html, unsafe_allow_html=True)
+
+    if st.session_state.running:
         time.sleep(0.2)
         st.rerun()
-    else:
-        # 대기 상태 표시
-        progress_placeholder.markdown(
-            f"""
-            <div style="display:flex; align-items:center; gap:16px; margin-top:10px;">
-              <div style="font-size:44px; font-weight:800;">{st.session_state.last_set_minutes:02d}:00</div>
-              <div style="color:#666;">설정 후 시작을 눌러주세요.</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        text_placeholder.empty()
