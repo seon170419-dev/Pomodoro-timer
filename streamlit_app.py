@@ -77,11 +77,8 @@ with right:
         st.caption("설정 후 시작을 눌러주세요.")
 
 # ===== 왼쪽: 이미지 + 남은시간(크게) =====
+# ===== 왼쪽: 이미지 위에 도넛(초록) 오버레이 + 남은시간 =====
 with left:
-    # (1) 이미지 표시: 레포에 업로드한 timer.png를 불러옴
-    #     파일명이 다르면 여기만 바꿔줘.
-    try:
-      with left:
     # --- 현재 남은 시간 계산 ---
     if st.session_state.running and st.session_state.end_time is not None:
         remaining = int(st.session_state.end_time - time.time())
@@ -94,15 +91,16 @@ with left:
         ratio = 1.0
 
     # --- 이미지 base64로 HTML에 삽입 (오버레이 하려고) ---
-    b64 = img_to_base64("timer.png")
+    # ✅ 파일명: 네 실제 파일명으로 변경
+    b64 = img_to_base64("낼나 타이머 이미지.png")
 
-    # --- 오버레이 원(도넛) 설정값: 여기만 튜닝하면 정렬 딱 맞출 수 있음 ---
-    IMG_W = 340                 # 화면에서 보일 이미지 가로폭(px)
-    SVG_SIZE = 300              # 원 크기(px) - 이미지보다 약간 작게
-    TOP_OFFSET = 18             # 원을 위/아래로 이동 (px)
-    LEFT_OFFSET = 20            # 원을 좌/우로 이동 (px)
-    STROKE = 28                 # 도넛 두께 (두꺼울수록 가운데 구멍 작아짐)
-    GREEN = "#1F5E3B"           # 타이머 초록에 가깝게 (원하면 바꿔줘)
+    # --- 오버레이 원(도넛) 설정값: 필요하면 나중에 숫자만 튜닝 ---
+    IMG_W = 340
+    SVG_SIZE = 300
+    TOP_OFFSET = 18
+    LEFT_OFFSET = 20
+    STROKE = 22          # 도넛 두께(구멍 크게 하고 싶으면 더 줄이기)
+    GREEN = "#1F5E3B"
 
     # 원(아크) 계산
     r = (SVG_SIZE - STROKE) / 2
@@ -114,13 +112,10 @@ with left:
     <div style="position:relative; width:{IMG_W}px; margin-top:10px;">
       <img src="data:image/png;base64,{b64}" style="width:{IMG_W}px; display:block;" />
 
-      <!-- 오버레이 SVG: 이미지 위에 겹치기 -->
       <svg width="{SVG_SIZE}" height="{SVG_SIZE}"
            style="position:absolute; top:{TOP_OFFSET}px; left:{LEFT_OFFSET}px; pointer-events:none;">
-        <!-- 배경 링(연한 회색) -->
         <circle cx="{SVG_SIZE/2}" cy="{SVG_SIZE/2}" r="{r}"
                 fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="{STROKE}"/>
-        <!-- 진행 링(초록) -->
         <circle cx="{SVG_SIZE/2}" cy="{SVG_SIZE/2}" r="{r}"
                 fill="none" stroke="{GREEN}" stroke-width="{STROKE}"
                 stroke-linecap="round"
